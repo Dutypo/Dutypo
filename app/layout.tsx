@@ -8,7 +8,7 @@ const notoSansKR = Noto_Sans_KR({
 
 export const metadata: Metadata = {
   title: 'Dutypo',
-  description: '타이포그래피 메이커',
+  description: '엔트리에서 모션그래픽을 만들기 위한 편집기',
 }
 
 export default function RootLayout({ children }: { readonly children: React.ReactNode }) {

@@ -49,12 +49,6 @@ export async function createEntryProject({ fps, audio, canvas, useDummyCode, onP
   useDummyCode: boolean
   onProgress?(progress: number): void
 }) {
-  // const input = inputRef.current, canvas = canvasRef.current
-  // if (!input || !canvas) return
-  // const audio = input.files?.[0]
-  // if (!audio) return alert('오디오 파일을 선택해 주세요.')
-  // setRecording(true)
-
   const tar = new Tar
   const ffmpeg = new FFmpeg
   const audioHash = generateHash()
@@ -96,13 +90,6 @@ export async function createEntryProject({ fps, audio, canvas, useDummyCode, onP
     audioHash,
     useDummyCode
   }))))
-
-  // const a = document.createElement('a')
-  // a.href = URL.createObjectURL(new Blob([ tar.out ]))
-  // a.download = audio.name.replace(/(\.[^.]*)?$/, '.ent')
-  // a.click()
-  // setTimeout(URL.revokeObjectURL, 0, a.href)
-  // setRecording(false)
 }
 
 export async function createMp4({ fps, audio, canvas, onProgress }: {
@@ -111,14 +98,6 @@ export async function createMp4({ fps, audio, canvas, onProgress }: {
   canvas: HTMLCanvasElement
   onProgress?(progress: number): void
 }) {
-  // const input = inputRef.current, canvas = canvasRef.current
-  // if (!input || !canvas) return
-  // const audio = input.files?.[0]
-  // if (!audio) return alert('오디오 파일을 선택해 주세요.')
-  // setWidth(canvas.width = 2560)
-  // setHeight(canvas.height = 1440)
-  // setRecording(true)
-
   const muxer = new Muxer({
     target: new ArrayBufferTarget,
     video: {
@@ -169,10 +148,4 @@ export async function createMp4({ fps, audio, canvas, onProgress }: {
   await ffmpeg.exec(['-i', 'v.mp4', '-i', audio.name, '-c', 'copy', 'o.mp4'])
 
   return ffmpeg.readFile('o.mp4')
-  // const a = document.createElement('a')
-  // a.href = URL.createObjectURL(new Blob([ await ffmpeg.readFile('o.mp4') ]))
-  // a.download = audio.name.replace(/(\.[^.]*)?$/, '.mp4')
-  // a.click()
-  // setTimeout(URL.revokeObjectURL, 0, a.href)
-  // setRecording(false)
 }
