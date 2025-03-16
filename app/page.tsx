@@ -146,7 +146,8 @@ export default function Home() {
     setRecording(false)
   }
 
-  _openedMenu = openedMenu, _setOpenedMenu = setOpenedMenu
+  _openedMenu = openedMenu
+  _setOpenedMenu = setOpenedMenu
 
   return (
     <main className='h-full flex flex-col overflow-hidden'>
