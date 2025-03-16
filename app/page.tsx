@@ -1,9 +1,30 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react'
 import { ButtonsDiv, HeaderMenu, MenuButton, MenuLink } from './button'
 import { createEntryProject, createMp4 } from './export'
 import TODO from './todo'
+
+let _openedMenu: string | undefined, _setOpenedMenu: Dispatch<SetStateAction<string | undefined>>
+
+function Menu({ id, children, opened = _openedMenu == id, name }: Readonly<{
+  id: string
+  children?: React.ReactNode
+  opened?: boolean
+  name: string
+}>) {
+  const [ clicking, setClicking ] = useState(false)
+
+  return (
+    <HeaderMenu
+      opened={opened}
+      name={name}
+      onOpened={() => (_setOpenedMenu(id), setClicking(true))}
+      onClosed={() => clicking ? setClicking(false) : _setOpenedMenu(void 0)}
+      onPointerEnter={() => typeof _openedMenu == 'string' && _setOpenedMenu(id)}
+    >{children}</HeaderMenu>
+  )
+}
 
 export default function Home() {
   const [ recording, setRecording ] = useState(false)
@@ -13,32 +34,14 @@ export default function Home() {
   const [ asideWidth, setAsideWidth ] = useState(1)
   const [ menuHeight, setMenuHeight ] = useState(0.5)
   const [ openedMenu, setOpenedMenu ] = useState<string>()
-  const [ clicking, setClicking ] = useState(false)
   const [ hovering, setHovering ] = useState(false)
   const [ fullscreen, setFullscreen ] = useState(false)
-  const [ running, setRunning ] = useState(false)
+  const [ playing, setPlaying ] = useState(false)
   const [ fps, setFPS ] = useState(60)
   const [ useDummyCode ] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const videoPlayerRef = useRef<HTMLDivElement>(null)
-
-  function Menu({ id, children, opened = openedMenu == id, name }: Readonly<{
-    id: string
-    children?: React.ReactNode
-    opened?: boolean
-    name: string
-  }>) {
-    return (
-      <HeaderMenu
-        opened={opened}
-        name={name}
-        onOpened={() => (setOpenedMenu(id), setClicking(true))}
-        onClosed={() => clicking ? setClicking(false) : setOpenedMenu(void 0)}
-        onPointerEnter={() => typeof openedMenu == 'string' && setOpenedMenu(id)}
-      >{children}</HeaderMenu>
-    )
-  }
 
   function rowResize(event: React.MouseEvent) {
     const mainHeight = innerHeight - 60
@@ -110,6 +113,7 @@ export default function Home() {
     if (!input || !canvas) return
     const audio = input.files?.[0]
     if (!audio) return alert('오디오 파일을 선택해 주세요.')
+    setPlaying(true)
     setRecording(true)
     setWidth(canvas.width = 640)
     setHeight(canvas.height = 360)
@@ -131,6 +135,7 @@ export default function Home() {
     if (!input || !canvas) return
     const audio = input.files?.[0]
     if (!audio) return alert('오디오 파일을 선택해 주세요.')
+    setPlaying(true)
     setRecording(true)
 
     const a = document.createElement('a')
@@ -140,6 +145,8 @@ export default function Home() {
     setTimeout(URL.revokeObjectURL, 0, a.href)
     setRecording(false)
   }
+
+  _openedMenu = openedMenu, _setOpenedMenu = setOpenedMenu
 
   return (
     <main className='h-full flex flex-col overflow-hidden'>
@@ -188,7 +195,7 @@ export default function Home() {
                 width={width}
                 height={height}
                 ref={canvasRef}
-                onClick={() => setRunning(running => !running)}
+                onClick={() => setPlaying(playing => !playing)}
                 onDoubleClick={() => document.fullscreenElement ? document.exitFullscreen().then(() => setFullscreen(false)) : videoPlayerRef.current?.requestFullscreen().then(() => setFullscreen(true))}
                 className='w-full h-full aspect-video bg-black object-contain'
               />
@@ -203,26 +210,20 @@ export default function Home() {
                 </div>
                 <div className='h-full p-6'>
                   <svg
-                    onClick={() => setRunning(true)}
-                    className='float-left cursor-pointer duration-200 hover:scale-125'
+                    onClick={() => recording || setPlaying(true)}
+                    className={`float-left duration-200 hover:scale-125 ${playing ? 'hidden' : ''} ${recording ? 'cursor-not-allowed brightness-50' : 'cursor-pointer'}`}
                     xmlns='http://www.w3.org/2000/svg'
                     width='24'
                     height='24'
-                    style={{
-                      display: running ? 'none' : void 0,
-                    }}
                   >
                     <path d='M5,3V21L21,12' fill='#ededed' />
                   </svg>
                   <svg
-                    onClick={() => setRunning(false)}
-                    className='float-left cursor-pointer duration-200 hover:scale-125'
+                    onClick={() => recording || setPlaying(false)}
+                    className={`float-left duration-200 hover:scale-125 ${playing ? '' : 'hidden'} ${recording ? 'cursor-not-allowed brightness-50' : 'cursor-pointer'}`}
                     xmlns='http://www.w3.org/2000/svg'
                     width='24'
                     height='24'
-                    style={{
-                      display: running ? void 0 : 'none',
-                    }}
                   >
                     <path d='M7,3V21M17,3V21' fill='none' stroke='#ededed' strokeWidth='4' />
                   </svg>
