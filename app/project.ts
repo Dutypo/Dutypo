@@ -1,5 +1,13 @@
 import generateHash from './hash'
 
+interface ScriptParams {
+  type: string
+  params?: (Script | string | number | null)[]
+  statements?: Script[][]
+  x?: number
+  y?: number
+}
+
 class Script {
   id = generateHash(4)
   x
@@ -7,19 +15,14 @@ class Script {
   type
   params
   statements
-  constructor({
-    type,
-    params,
-    statements,
-    x,
-    y,
-  }: {
-    type: string
-    params?: (Script | string | number | null)[]
-    statements?: Script[][]
-    x?: number
-    y?: number
-  }) {
+  constructor(type: string)
+  constructor({ type, params, statements, x, y }: ScriptParams)
+  constructor(argument: string | ScriptParams) {
+    if (typeof argument == 'string') {
+      this.type = argument
+      return
+    }
+    const { type, params, statements, x, y } = argument
     this.type = type
     this.params = params
     this.statements = statements
@@ -28,7 +31,7 @@ class Script {
   }
 }
 
-const createProject = ({ name, width, height, pictures, duration, fps, frames, audioHash, useDummyCode }: { name: string, width: number, height: number, pictures: string[], duration: number, fps: number, frames: number, audioHash: string, useDummyCode: boolean }) => ({
+const createVideoProject = ({ name, width, height, pictures, duration, fps, frames, audioHash, useDummyCode }: { name: string, width: number, height: number, pictures: string[], duration: number, fps: number, frames: number, audioHash: string, useDummyCode: boolean }) => ({
   objects: [{
     id: '7y0y',
     name,
@@ -123,15 +126,12 @@ const createProject = ({ name, width, height, pictures, duration, fps, frames, a
           })],
         })],
       })]],
-    }), /*new Script({
+    }), new Script({
       type: 'change_to_some_shape',
       params: [new Script({
         type: 'number',
         params: [frames],
       })],
-    })*/ new Script({
-      type: 'start_neighbor_scene',
-      params: ['next'],
     })]]),
   }],
   scenes: [{
@@ -181,4 +181,4 @@ const createProject = ({ name, width, height, pictures, duration, fps, frames, a
   name,
 })
 
-export default createProject
+export default createVideoProject

@@ -1,151 +1,106 @@
-import { FFmpeg } from '@ffmpeg/ffmpeg'
 import Tar from 'tar-js'
+import * as THREE from 'three'
 import generateHash from './hash'
-import Renderer from './renderer'
-import createProject from './project'
-import { ArrayBufferTarget, Muxer } from 'mp4-muxer'
 
-async function render({ ffmpeg, fps, audio, canvas, terminate, onAudioLoaded, onFrameDrawn, onProgress }: {
-  ffmpeg: FFmpeg
-  fps: number
-  audio: File
-  canvas: HTMLCanvasElement
-  terminate: boolean
-  onAudioLoaded?(audio: Uint8Array): void
-  onFrameDrawn(canvas: HTMLCanvasElement, frame: number, next: () => void): void
-  onProgress?(progress: number): void
-}) {
-  const renderer = new Renderer(canvas)
-  const [ audioData ] = await Promise.all([
-    audio.arrayBuffer().then(data => {
-      const audioData = new Uint8Array(data)
-      onAudioLoaded?.(audioData)
-      return audioData
-    }),
-    ffmpeg.load(),
-  ])
+class Renderer {
+  public readonly canvas
+  private scene
+  private camera
+  private renderer
+  private cubeMesh
 
-  await ffmpeg.writeFile(audio.name, audioData)
-  await ffmpeg.ffprobe(['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', audio.name, '-o', 'd.txt'])
-  const duration = await ffmpeg.readFile('d.txt').then(data => parseFloat(typeof data == 'object' ? new TextDecoder().decode(data) : data))
-  if (terminate) ffmpeg.terminate()
-
-  const frames = Math.ceil(duration * fps)
-  let loadedFrames = 0
-  for (let frame = 0; frame < frames; frame++) {
-    const time = frame / fps
-    await renderer.render(time)
-    await new Promise<void>(resolve => onFrameDrawn(canvas, frame, resolve))
-    const progress = ++loadedFrames / frames
-    onProgress?.(progress)
+  constructor(config: RenderOptions) {
+    const canvas = this.canvas = config.canvas
+    const scene = this.scene = new THREE.Scene
+    const camera = this.camera = new THREE.PerspectiveCamera(70, canvas.width / canvas.height)
+    camera.position.z = 5
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true })
+    const cube = new THREE.BoxGeometry
+    const cubeMaterial = new THREE.MeshLambertMaterial({ color: 0xff0080 })
+    const light = new THREE.DirectionalLight(0xffffff, 3)
+    light.position.set(1, 1, 5).normalize()
+    scene.add(this.cubeMesh = new THREE.Mesh(cube, cubeMaterial), light)
   }
-  return { duration, frames }
+
+  async renderFrame(time: number) {
+    const { scene, camera, renderer, cubeMesh } = this
+    cubeMesh.rotation.x = time
+    cubeMesh.rotation.y = time
+    renderer.render(scene, camera)
+  }
+
+  async renderAudio(time: number, sampleRate: number) {
+    return new AudioData({
+      data: new Float32Array(2),
+      format: 'f32-planar',
+      numberOfChannels: 2,
+      numberOfFrames: 1,
+      sampleRate,
+      timestamp: time * 1_000_000,
+    })
+  }
 }
 
-export async function createEntryProject({ fps, audio, canvas, useDummyCode, onProgress }: {
-  fps: number
-  audio: File
+interface BaseRenderOptions {
   canvas: HTMLCanvasElement
+  duration: number
+  fps: number
+  channels: number
+  sampleRate: number
+}
+
+interface RenderOptions extends BaseRenderOptions {
+  onAudioRendered?(data: AudioData, frameNo: number): Promise<void>
+  onVideoRendered?(frame: HTMLCanvasElement, frameNo: number): Promise<void>
+}
+
+async function render(options: RenderOptions) {
+  const renderer = new Renderer(options)
+  await Promise.all([
+    (async () => {
+      for (let frame = 0; frame < options.duration * options.fps; frame++) {
+        await renderer.renderFrame(frame / options.fps)
+        await options.onVideoRendered?.(options.canvas, frame)
+      }
+    })(),
+    (async () => {
+      for (let frame = 0; frame < options.duration * options.sampleRate; ) {
+        const audioData = await renderer.renderAudio(frame / options.sampleRate, options.sampleRate)
+        await options.onAudioRendered?.(audioData, frame)
+        frame += audioData.numberOfFrames
+      }
+    })(),
+  ])
+}
+
+export interface EntryRenderOptions extends BaseRenderOptions {
   useDummyCode: boolean
-  onProgress?(progress: number): void
-}) {
+}
+
+export async function renderEntryProject(options: EntryRenderOptions) {
   const tar = new Tar
-  const ffmpeg = new FFmpeg
   const audioHash = generateHash()
   const pictures: string[] = []
   const promises: Promise<unknown>[] = []
-  const { duration, frames } = await render({
-    ffmpeg,
-    fps,
-    audio,
-    canvas,
-    terminate: true,
-    onAudioLoaded(audio) {
-      tar.append(`temp/${audioHash.substring(0, 2)}/${audioHash.substring(2, 4)}/${audioHash}.mp3`, audio)
-    },
-    onFrameDrawn(canvas, frame, next) {
-      promises[frame] = (async () => {
-        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve))
-        queueMicrotask(next)
-        if (!blob) throw new TypeError('Failed to get blob from canvas.')
-        const data = await blob.arrayBuffer()
 
-        const hash = generateHash()
-        pictures[frame] = hash
-        tar.append(`temp/${hash.substring(0, 2)}/${hash.substring(2, 4)}/image/${hash}.png`, new Uint8Array(data))
-      })()
-    },
-    onProgress,
-  })
-
-  await Promise.all(promises)
-  return tar.append('temp/project.json', new TextEncoder().encode(JSON.stringify(createProject({
-    name: audio.name,
-    width: canvas.width,
-    height: canvas.height,
-    pictures,
-    duration,
-    fps,
-    frames,
-    audioHash,
-    useDummyCode
-  }))))
-}
-
-export async function createMp4({ fps, audio, canvas, onProgress }: {
-  fps: number
-  audio: File
-  canvas: HTMLCanvasElement
-  onProgress?(progress: number): void
-}) {
-  const muxer = new Muxer({
-    target: new ArrayBufferTarget,
-    video: {
-      codec: 'av1',
-      width: canvas.width,
-      height: canvas.height,
-      frameRate: fps,
-    },
-    fastStart: false,
-  })
-  const encoder = new VideoEncoder({
-    error(error) { throw error },
-    output: muxer.addVideoChunk.bind(muxer),
-  })
-  encoder.configure({
-    codec: 'av01.0.08M.08',
-    width: canvas.width,
-    height: canvas.height,
-  })
-
-  const offscreen = new OffscreenCanvas(canvas.width, canvas.height)
-  const context = offscreen.getContext('2d')
-  if (!context) throw new TypeError('Cannot use Canvas2D')
-  context.fillStyle = '#fff'
-
-  const ffmpeg = new FFmpeg
   await render({
-    ffmpeg,
-    fps,
-    audio,
-    canvas,
-    terminate: false,
-    onFrameDrawn(canvas, frame, next) {
-      context.fillRect(0, 0, offscreen.width, offscreen.height)
-      context.drawImage(canvas, 0, 0)
-      const videoFrame = new VideoFrame(offscreen, { timestamp: frame * 1_000_000 / fps })
-      encoder.encode(videoFrame)
-      videoFrame.close()
-      encoder.addEventListener('dequeue', next)
+    ...options,
+    onAudioRendered(data, frameNo) {
+      return Promise.resolve()
     },
-    onProgress,
+    onVideoRendered(frame, frameNo) {
+      return new Promise(resolve => {
+        promises[frameNo] = (async () => {
+          const blob = await new Promise<Blob | null>(resolve => frame.toBlob(resolve))
+          queueMicrotask(resolve)
+          if (!blob) throw new TypeError('Failed to get blob from canvas.')
+          const data = await blob.arrayBuffer()
+
+          const hash = generateHash()
+          pictures[frameNo] = hash
+          tar.append(`temp/${hash.substring(0, 2)}/${hash.substring(2, 4)}/image/${hash}.png`, new Uint8Array(data))
+        })()
+      })
+    },
   })
-  await encoder.flush()
-  encoder.close()
-  muxer.finalize()
-
-  await ffmpeg.writeFile('v.mp4', new Uint8Array(muxer.target.buffer))
-  await ffmpeg.exec(['-i', 'v.mp4', '-i', audio.name, '-c', 'copy', 'o.mp4'])
-
-  return ffmpeg.readFile('o.mp4')
 }
