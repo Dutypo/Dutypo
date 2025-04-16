@@ -31,7 +31,19 @@ class Script {
   }
 }
 
-const createVideoProject = ({ name, width, height, pictures, duration, fps, frames, audioHash, useDummyCode }: { name: string, width: number, height: number, pictures: string[], duration: number, fps: number, frames: number, audioHash: string, useDummyCode: boolean }) => ({
+export interface VideoProjectOptions {
+  name: string
+  width: number
+  height: number
+  pictures: string[]
+  duration: number
+  fps: number
+  frames: number
+  audioHash: string
+  useDummyCode?: boolean
+}
+
+const createVideoProject = ({ name, width, height, pictures, duration, fps, frames, audioHash, useDummyCode }: VideoProjectOptions) => ({
   objects: [{
     id: '7y0y',
     name,

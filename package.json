@@ -15,7 +15,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tar-js": "^0.3.0",
-    "three": "^0.173.0"
+    "three": "^0.174.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",

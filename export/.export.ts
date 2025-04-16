@@ -2,7 +2,7 @@ import { FFmpeg } from '@ffmpeg/ffmpeg'
 import Tar from 'tar-js'
 import generateHash from './hash'
 import Renderer from './renderer'
-import createProject from './project'
+import createProject from './entry'
 import { ArrayBufferTarget, Muxer } from 'mp4-muxer'
 
 async function render({ ffmpeg, fps, canvas, duration, terminate, onAudioLoaded, onFrameDrawn, onProgress }: {

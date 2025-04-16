@@ -3,6 +3,7 @@
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react'
 import { ButtonsDiv, HeaderMenu, MenuButton, MenuLink } from '@/app/button'
 import TODO from '@/app/todo'
+import { renderEntryProject } from '@/export/video'
 
 let _openedMenu: string | undefined, _setOpenedMenu: Dispatch<SetStateAction<string | undefined>>
 
@@ -118,7 +119,22 @@ export default function Home() {
               <MenuLink href='/' kbd='Ctrl+N' onClick={() => setOpenedMenu(void 0)}>새로 만들기</MenuLink>
               <MenuButton onClick={() => {}} kbd='Ctrl+O'>작품 불러오기</MenuButton>
               <MenuButton onClick={() => {}} kbd='Ctrl+S'>작품 저장하기</MenuButton>
-              <MenuButton onClick={() => {}} kbd='Ctrl+E'>작품 내보내기</MenuButton>
+              <MenuButton onClick={() => renderEntryProject({
+                name: 'test',
+                duration: 1,
+                video: {
+                  canvas: canvasRef.current || (() => { throw new TypeError('Cannot find canvas') })(),
+                  framerate: 1000 / Math.floor(1000 / 60),
+                },
+                audio: {
+                  numberOfChannels: 2,
+                  numberOfFrames: 128,
+                  sampleRate: 48000,
+                  format: 'f32-planar',
+                  codecType: 'opus',
+                  codecString: 'opus',
+                },
+              })} kbd='Ctrl+E'>작품 내보내기</MenuButton>
             </ButtonsDiv>
           </Menu>
           <Menu id='menu-edit' name='편집 (E)'>
